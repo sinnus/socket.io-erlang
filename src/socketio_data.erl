@@ -20,19 +20,25 @@
 
 encode(#msg{ content = Content, json = false }) when is_list(Content) ->
     Length = integer_to_list(length(Content)),
-    ?FRAME ++ Length ++ ?FRAME ++ Content;
+    convert_to_latin1_list(?FRAME ++ Length ++ ?FRAME ++ Content);
 
 encode(#msg{ content = Content, json = true }) ->
-    JSON = binary_to_list(jsx:term_to_json(Content)),
+    JSON =  unicode:characters_to_list(jsx:term_to_json(Content)),
     Length = integer_to_list(length(JSON) + ?JSON_FRAME_LENGTH),
-    ?FRAME ++ Length ++ ?FRAME ++ ?JSON_FRAME ++ JSON;
+    convert_to_latin1_list(?FRAME ++ Length ++ ?FRAME ++ ?JSON_FRAME ++ JSON);
 
 encode(#heartbeat{ index = Index }) ->
     String = integer_to_list(Index),
     Length = integer_to_list(length(String) + ?HEARTBEAT_FRAME_LENGTH),
-    ?FRAME ++ Length ++ ?FRAME ++ ?HEARTBEAT_FRAME ++ String.
+    convert_to_latin1_list(?FRAME ++ Length ++ ?FRAME ++ ?HEARTBEAT_FRAME ++ String).
+
+convert_to_latin1_list(Message) ->
+    binary_to_list(unicode:characters_to_binary(Message)).
 
 decode(#msg{content=Str}) when is_list(Str) ->
+    header(unicode:characters_to_list(list_to_binary(Str))).
+
+plain_decode(#msg{content=Str}) when is_list(Str) ->
     header(Str).
 
 header(?FRAME ++ Rest) ->
@@ -54,7 +60,7 @@ body(Length, Body) ->
 
 json(Length, Body) ->
     {Object, Rest} = lists:split(Length, Body),
-    [#msg{content=jsx:json_to_term(list_to_binary(Object), [{strict,false}]), json=true} |
+    [#msg{content=jsx:json_to_term(unicode:characters_to_binary(Object), [{strict,false}]), json=true} |
      handle_rest(Rest)].
 
 heartbeat(Length, Body) ->
@@ -62,7 +68,7 @@ heartbeat(Length, Body) ->
     [#heartbeat{index=list_to_integer(Heart)} | handle_rest(Rest)].
 
 handle_rest([]) -> [];
-handle_rest(X) -> decode(#msg{content=X}).
+handle_rest(X) -> plain_decode(#msg{content=X}).
 
 %% TESTS
 -include_lib("eunit/include/eunit.hrl").
@@ -91,5 +97,7 @@ json_encoding_test() ->
     Data = encode(Msg),
     [X] = decode(#msg{content=Data}),
     ?assertMatch(#msg{content=JSON, json=true}, X).
+
+
 
 -endif.

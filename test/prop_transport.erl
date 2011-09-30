@@ -82,9 +82,17 @@ gen_encoded({N, Encoded}) ->
 gen_string() ->
     ?LAZY(weighted_union([
         {1, []},
-        {1, [$~|string()]},
-        {10, [char()|gen_string()]}
+        {1, [$~|utf_string()]},
+        {10, [utf_char()|gen_string()]}
     ])).
+
+%% UTF8 includes integers from 0x00000000 to 0x001FFFFF
+%% But there is many exceptions higher #7FF (skip other values)
+utf_char() ->
+    integer(0, 16#7FF).
+
+utf_string() ->
+    list(utf_char()).
 
 heartbeat() -> ?LET(N, int(), abs(N)).
 
