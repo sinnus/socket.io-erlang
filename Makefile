@@ -1,4 +1,5 @@
-all: compile
+all:
+	@./rebar compile skip_deps=true
 
 deps:
 	@./rebar get-deps
