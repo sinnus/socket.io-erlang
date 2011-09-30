@@ -33,6 +33,9 @@ init([Options]) ->
                                   {socketio_listener_event_manager, {gen_event, start_link, []},
                                    permanent, 5000, worker, [gen_event]},
 
+                                  {uuids, {uuids, start, []},
+                                   permanent, 5000, worker, [uuids]},
+
                                   {socketio_listener, {socketio_listener, start_link, [self(), Origins]},
                                    permanent, 5000, worker, [socketio_listener]},
 

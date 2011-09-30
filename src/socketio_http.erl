@@ -208,7 +208,7 @@ handle_call({session, generate, ConnectionReference, Transport}, _From, #state{
                                                                    event_manager = EventManager,
                                                                    server_module = ServerModule
                                                                   } = State) ->
-    UUID = binary_to_list(ossp_uuid:make(v4, text)),
+    UUID = binary_to_list(uuids:new()),
     {ok, Pid} = socketio_client:start(Sup, Transport, UUID, ServerModule, ConnectionReference),
     link(Pid),
     ets:insert(Sessions, [{UUID, Pid}, {Pid, UUID}]),
