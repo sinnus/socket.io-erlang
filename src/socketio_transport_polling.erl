@@ -22,7 +22,8 @@
           polling_duration,
           close_timeout,
           event_manager,
-          sup
+          sup,
+          ssid_timeour_ref
          }).
 
 %%%===================================================================
@@ -76,6 +77,8 @@ init([Sup, SessionId, ServerModule, {TransportType, {Req, Index}}]) ->
     end,
     {ok, EventMgr} = gen_event:start_link(),
     send_message(#msg{content = SessionId}, Req, Index, ServerModule, Sup),
+    %% Start timer to shutdown if no polling session has been established
+    SessionRequestTimeoutRef = erlang:start_timer(PollingDuration, self(), ssid_request_timeout),
     {ok, #state {
        session_id = SessionId,
        server_module = ServerModule,
@@ -85,7 +88,8 @@ init([Sup, SessionId, ServerModule, {TransportType, {Req, Index}}]) ->
        polling_duration = {make_ref(), PollingDuration},
        close_timeout = CloseTimeout,
        event_manager = EventMgr,
-       sup = Sup
+       sup = Sup,
+       ssid_timeour_ref = SessionRequestTimeoutRef
       }};
 
 init([Sup, SessionId, ServerModule, {TransportType, Req}]) ->
@@ -168,16 +172,20 @@ handle_cast({TransportType, polling_request, {Req, Index}, Server}, State) ->
 handle_cast({TransportType, polling_request, Req, Server}, #state { server_module = ServerModule,
                                                                     polling_duration = Interval,
                                                                     message_buffer = [] } = State) ->
+
+
     ServerModule:ensure_longpolling_request(Req),
     link(ServerModule:socket(Req)),
     {noreply, State#state{ connection_reference = {TransportType, connected}, req = Req,
                            caller = Server,
-                           polling_duration = reset_duration(Interval) }};
+                           polling_duration = reset_duration(Interval),
+                           ssid_timeour_ref = reset_ssid_timer(State#state.ssid_timeour_ref) }};
 
 handle_cast({TransportType, polling_request, Req, Server}, #state { server_module = ServerModule, 
                                                                     message_buffer = Buffer } = State) ->
     link(ServerModule:socket(Req)),
     handle_cast({send, {buffer, Buffer}}, State#state{ connection_reference = {TransportType, connected},
+						       ssid_timeour_ref = reset_ssid_timer(State#state.ssid_timeour_ref),
 						       req = Req, caller = Server, message_buffer = []});
 
 %% Send to client
@@ -228,6 +236,10 @@ handle_info(timeout, #state{ server_module = ServerModule, caller = Caller, req 
 %% We defer to the preceding clause.
 handle_info({timeout, _Ref, polling}, #state{ } = State) ->
     handle_info(timeout, State);
+
+%% Polling connection hasn't been established
+handle_info({timeout, _Ref, ssid_request_timeout}, State) ->
+    {stop, shutdown, State};
 
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -325,6 +337,15 @@ reset_duration({TimerRef, Time}) ->
     erlang:cancel_timer(TimerRef),
     NewRef = erlang:start_timer(Time, self(), polling),
     {NewRef, Time}.
+
+reset_ssid_timer(TimerRef) ->
+    case TimerRef of
+	undefined ->
+	    undefined;
+	_ ->
+	    erlang:cancel_timer(TimerRef),
+	    undefined
+    end.
 
 %% THis should deal with only one level of depth -- the rest is assumed to
 %% have been escaped correctly by jsx.
