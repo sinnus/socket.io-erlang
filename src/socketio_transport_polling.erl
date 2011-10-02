@@ -151,10 +151,30 @@ handle_call(session_id, _From, #state{ session_id = SessionId } = State) ->
 handle_call(req, _From, #state{ req = Req} = State) ->
     {reply, Req, State};
 
+%% Polling
+handle_call({TransportType, polling_request, {Req, Index}}, From, State) ->
+    handle_call({TransportType, polling_request, Req}, From, State#state{ index = Index});
+
+handle_call({TransportType, polling_request, Req}, From, #state {server_module = ServerModule,
+                                                                 polling_duration = Interval,
+                                                                 message_buffer = [] } = State) ->
+    ServerModule:ensure_longpolling_request(Req),
+    link(ServerModule:socket(Req)),
+    {noreply, State#state{connection_reference = {TransportType, connected}, req = Req,
+                          caller = From,
+                          polling_duration = reset_duration(Interval),
+                          ssid_timeour_ref = reset_ssid_timer(State#state.ssid_timeour_ref)}};
+
+handle_call({TransportType, polling_request, Req}, From,  #state {server_module = ServerModule, 
+                                                                   message_buffer = Buffer } = State) ->
+    link(ServerModule:socket(Req)),
+    handle_cast({send, {buffer, Buffer}}, State#state{ connection_reference = {TransportType, connected},
+						       ssid_timeour_ref = reset_ssid_timer(State#state.ssid_timeour_ref),
+						       req = Req, caller = From, message_buffer = []});
+
 %% Flow control
 handle_call(stop, _From, State) ->
     {stop, shutdown, State}.
-
 
 %%--------------------------------------------------------------------
 %% @private
@@ -166,28 +186,6 @@ handle_call(stop, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-%% Polling
-handle_cast({TransportType, polling_request, {Req, Index}, Server}, State) ->
-    handle_cast({TransportType, polling_request, Req, Server}, State#state{ index = Index});
-handle_cast({TransportType, polling_request, Req, Server}, #state { server_module = ServerModule,
-                                                                    polling_duration = Interval,
-                                                                    message_buffer = [] } = State) ->
-
-
-    ServerModule:ensure_longpolling_request(Req),
-    link(ServerModule:socket(Req)),
-    {noreply, State#state{ connection_reference = {TransportType, connected}, req = Req,
-                           caller = Server,
-                           polling_duration = reset_duration(Interval),
-                           ssid_timeour_ref = reset_ssid_timer(State#state.ssid_timeour_ref) }};
-
-handle_cast({TransportType, polling_request, Req, Server}, #state { server_module = ServerModule, 
-                                                                    message_buffer = Buffer } = State) ->
-    link(ServerModule:socket(Req)),
-    handle_cast({send, {buffer, Buffer}}, State#state{ connection_reference = {TransportType, connected},
-						       ssid_timeour_ref = reset_ssid_timer(State#state.ssid_timeour_ref),
-						       req = Req, caller = Server, message_buffer = []});
-
 %% Send to client
 handle_cast({send, Message}, #state{ connection_reference = {_TransportType, none}, message_buffer = Buffer } = State) ->
     {noreply, State#state{ message_buffer = lists:append(Buffer, [Message])}};
@@ -201,8 +199,6 @@ handle_cast({send, Message}, #state{ server_module = ServerModule,
 
 handle_cast(_, State) ->
     {noreply, State}.
-
-
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

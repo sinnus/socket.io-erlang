@@ -32,21 +32,20 @@ init([Options]) ->
     {ok, { {one_for_one, 5, 10}, [
                                   {socketio_listener_event_manager, {gen_event, start_link, []},
                                    permanent, 5000, worker, [gen_event]},
-
+                                  
                                   {uuids, {uuids, start, []},
                                    permanent, 5000, worker, [uuids]},
-
+                                  
                                   {socketio_listener, {socketio_listener, start_link, [self(), Origins]},
                                    permanent, 5000, worker, [socketio_listener]},
 
-                                  {socketio_http, {socketio_http, start_link, [ServerModule,
-                                                                               HttpPort,
-                                                                               Resource,
-									       SSL,
-                                                                               DefaultHttpHandler,
-                                                                               self()]}, 
-                                   permanent, 5000, worker, [socketio_http]},
-
+                                  {ServerModule, {ServerModule, start_link, [[{port, HttpPort}, {resource, Resource}, {ssl, SSL}, {http_handler, DefaultHttpHandler}]]},
+                                   permanent, 5000, worker, [ServerModule]},
+                                  
+                                  {socketio_manager, {socketio_manager, start_link, [ServerModule,
+                                                                                     self()]}, 
+                                   permanent, 5000, worker, [socketio_manager]},
+                                  
                                   {socketio_client_sup, {socketio_client_sup, start_link, []}, 
                                    permanent, infinity, supervisor, [socketio_client_sup]}
 

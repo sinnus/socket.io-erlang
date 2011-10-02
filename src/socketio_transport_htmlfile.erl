@@ -209,7 +209,7 @@ handle_info({'EXIT',_Port,_Reason}, #state{ close_timeout = ServerTimeout} = Sta
 %% okay.
 handle_info(timeout, #state{ server_module = ServerModule,
                              connection_reference = {'htmlfile', none}, caller = Caller, req = Req } = State) ->
-    gen_server:reply(Caller, ServerModule:respond(Req, 200)),
+    gen_server:cast(Caller, ServerModule:respond(Req, 200)),
     {stop, shutdown, State};
 
 %% See previous clauses' comments

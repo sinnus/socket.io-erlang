@@ -225,7 +225,7 @@ handle_info({'EXIT',Connection,_Reason}, #state{ close_timeout = ServerTimeout} 
 %% okay.
 handle_info(timeout, #state{ server_module = ServerModule,
                              connection_reference = {'xhr-multipart', none}, req = Req, caller = Caller } = State) ->
-    gen_server:reply(Caller, ServerModule:respond(Req, 200, "")),
+    gen_server:cast(Caller, ServerModule:respond(Req, 200, "")),
     {stop, shutdown, State};
 
 %% See the previous clauses' comments, please.
