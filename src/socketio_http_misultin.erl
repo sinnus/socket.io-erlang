@@ -162,7 +162,7 @@ dispatch_http({request, 'GET', ["xhr-multipart"|Resource], Req }, Resource, _Htt
         {'DOWN', Ref, process, _, _} -> 
             ok;
         Ignore ->
-            error_logger:warn_msg("Ignore: ~p~n", [Ignore])
+            error_logger:warning_msg("Ignore: ~p~n", [Ignore])
     end;
 
 %% Incoming XHR Multipart data
@@ -182,7 +182,7 @@ dispatch_http({request, 'GET', [_Random, "htmlfile"|Resource], Req }, Resource, 
         {'DOWN', Ref, process, _, _} -> 
             ok;
         Ignore ->
-            error_logger:warn_msg("Ignore: ~p~n", [Ignore])
+            error_logger:warning_msg("Ignore: ~p~n", [Ignore])
     end;
 
 %% Incoming htmlfile data
