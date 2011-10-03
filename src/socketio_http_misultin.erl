@@ -55,7 +55,7 @@ ensure_longpolling_request(Request) ->
 create_options(Port, Resource, undefined, HttpHandler) ->
     [{port, Port},
      {name, false},
-     {loop, fun (Req) -> handle_http(Req, HttpHandler) end},
+     {loop, fun (Req) -> handle_http(Req, Resource, HttpHandler) end},
      {ws_loop, fun (Ws) -> handle_websocket(Resource, Ws) end},
      {ws_autoexit, false}];
 create_options(Port, Resource, SSL, HttpHandler) ->
@@ -64,7 +64,7 @@ create_options(Port, Resource, SSL, HttpHandler) ->
     Password = proplists:get_value(password, SSL),
     [{port, Port},
      {name, false},
-     {loop, fun (Req) -> handle_http(Req, HttpHandler) end},
+     {loop, fun (Req) -> handle_http(Req, Resource, HttpHandler) end},
      {ws_loop, fun (Ws) -> handle_websocket(Resource, Ws) end},
      {ws_autoexit, false},
      {ssl, [{certfile, Certfile},
@@ -72,9 +72,9 @@ create_options(Port, Resource, SSL, HttpHandler) ->
 	    {password, Password}
 	   ]}].
 
-handle_http(Req, HttpHandler) ->
+handle_http(Req, Resource, HttpHandler) ->
     Path = misultin_req:resource([urldecode], Req),
-    dispatch_http({request, misultin_req:get(method, Req), lists:reverse(Path), Req}, HttpHandler).
+    dispatch_http({request, misultin_req:get(method, Req), lists:reverse(Path), Req}, Resource, HttpHandler).
 
 handle_websocket(Resource, Ws) ->
     WsPath = misultin_ws:get(path, Ws),
@@ -104,18 +104,18 @@ handle_websocket(Ws, SessionID, Pid) ->
 %%%%%%%%%%%%%%%%%%%%
 %% Http distpatchers
 %%%%%%%%%%%%%%%%%%%%
-dispatch_http({request, 'GET', ["socket.io.js"|_Resource], Req}, _HttpHandler) ->
+dispatch_http({request, 'GET', ["socket.io.js"|Resource], Req}, Resource, _HttpHandler) ->
     file(Req, filename:join([filename:dirname(code:which(?MODULE)), "..", "priv", "Socket.IO", "socket.io.js"]));
 
-dispatch_http({request, 'GET', ["WebSocketMain.swf", "web-socket-js", "vendor", "lib"|_Resource], Req}, _HttpHandler) ->
+dispatch_http({request, 'GET', ["WebSocketMain.swf", "web-socket-js", "vendor", "lib"|Resource], Req}, Resource, _HttpHandler) ->
     file(Req, filename:join([filename:dirname(code:which(?MODULE)), "..", "priv", "Socket.IO", "lib", "vendor", "web-socket-js", "WebSocketMain.swf"]));
 
 %% New XHR Polling request
-dispatch_http({request, 'GET', [_Random, "xhr-polling"|_Resource], Req}, _HttpHandler) ->
+dispatch_http({request, 'GET', [_Random, "xhr-polling"|Resource], Req}, Resource, _HttpHandler) ->
     socketio_manager:create_new_session({'xhr-polling', Req}, socketio_transport_polling);
 
 %% Returning XHR Polling
-dispatch_http({request, 'GET', [_Random, SessionId, "xhr-polling"|_Resource], Req}, _HttpHandler) ->
+dispatch_http({request, 'GET', [_Random, SessionId, "xhr-polling"|Resource], Req}, Resource, _HttpHandler) ->
     case socketio_manager:get_client_pid(SessionId) of
         undefined ->
             respond(Req, 404, "");
@@ -124,7 +124,7 @@ dispatch_http({request, 'GET', [_Random, SessionId, "xhr-polling"|_Resource], Re
     end;
 
 %% Incoming XHR Polling data
-dispatch_http({request, 'POST', ["send", SessionId, "xhr-polling"|_Resource], Req}, _HttpHandler) ->
+dispatch_http({request, 'POST', ["send", SessionId, "xhr-polling"|Resource], Req}, Resource, _HttpHandler) ->
     case socketio_manager:get_client_pid(SessionId) of
         undefined ->
             respond(Req, 404, "");
@@ -133,11 +133,11 @@ dispatch_http({request, 'POST', ["send", SessionId, "xhr-polling"|_Resource], Re
     end;
 
 %% New JSONP Polling request
-dispatch_http({request, 'GET', [Index, _Random, "jsonp-polling"|_Resource], Req }, _HttpHandler) ->
+dispatch_http({request, 'GET', [Index, _Random, "jsonp-polling"|Resource], Req }, Resource, _HttpHandler) ->
     socketio_manager:create_new_session({'jsonp-polling', {Req, Index}}, socketio_transport_polling);
 
 %% Returning JSONP Polling
-dispatch_http({request, 'GET', [Index, _Random, SessionId, "jsonp-polling"|_Resource], Req }, _HttpHandler) ->
+dispatch_http({request, 'GET', [Index, _Random, SessionId, "jsonp-polling"|Resource], Req }, Resource, _HttpHandler) ->
     case socketio_manager:get_client_pid(SessionId) of
         undefined ->
             respond(Req, 404, "");
@@ -146,7 +146,7 @@ dispatch_http({request, 'GET', [Index, _Random, SessionId, "jsonp-polling"|_Reso
     end;
 
 %% Incoming JSONP Polling data
-dispatch_http({request, 'POST', [_Index, _Random, SessionId, "jsonp-polling"|_Resource], Req }, _HttpHandler) ->
+dispatch_http({request, 'POST', [_Index, _Random, SessionId, "jsonp-polling"|Resource], Req }, Resource, _HttpHandler) ->
     case socketio_manager:get_client_pid(SessionId) of
         undefined ->
             respond(Req, 404, "");
@@ -155,7 +155,7 @@ dispatch_http({request, 'POST', [_Index, _Random, SessionId, "jsonp-polling"|_Re
     end;
 
 %% New XHR Multipart request
-dispatch_http({request, 'GET', ["xhr-multipart"|_Resource], Req }, _HttpHandler) ->
+dispatch_http({request, 'GET', ["xhr-multipart"|Resource], Req }, Resource, _HttpHandler) ->
     {_, Pid1} = socketio_manager:create_new_session({'xhr-multipart', {Req, self()}}, socketio_transport_xhr_multipart),
     Ref = erlang:monitor(process, Pid1),
     receive
@@ -166,7 +166,7 @@ dispatch_http({request, 'GET', ["xhr-multipart"|_Resource], Req }, _HttpHandler)
     end;
 
 %% Incoming XHR Multipart data
-dispatch_http({request, 'POST', ["send", SessionId, "xhr-multipart"|_Resource], Req }, _HttpHandler) ->
+dispatch_http({request, 'POST', ["send", SessionId, "xhr-multipart"|Resource], Req }, Resource, _HttpHandler) ->
     case socketio_manager:get_client_pid(SessionId) of
         undefined ->
             respond(Req, 404, "");
@@ -175,7 +175,7 @@ dispatch_http({request, 'POST', ["send", SessionId, "xhr-multipart"|_Resource], 
     end;
 
 %% New htmlfile request
-dispatch_http({request, 'GET', [_Random, "htmlfile"|_Resource], Req }, _HttpHandler) ->
+dispatch_http({request, 'GET', [_Random, "htmlfile"|Resource], Req }, Resource, _HttpHandler) ->
     {_, Pid1} = socketio_manager:create_new_session({'htmlfile', {Req, self()}}, socketio_transport_htmlfile),
     Ref = erlang:monitor(process, Pid1),
     receive
@@ -186,7 +186,7 @@ dispatch_http({request, 'GET', [_Random, "htmlfile"|_Resource], Req }, _HttpHand
     end;
 
 %% Incoming htmlfile data
-dispatch_http({request, 'POST', ["send", SessionId, "htmlfile"|_Resource], Req }, _HttpHandler) ->
+dispatch_http({request, 'POST', ["send", SessionId, "htmlfile"|Resource], Req }, Resource, _HttpHandler) ->
     case socketio_manager:get_client_pid(SessionId) of
         undefined ->
             respond(Req, 404, "");
@@ -194,5 +194,5 @@ dispatch_http({request, 'POST', ["send", SessionId, "htmlfile"|_Resource], Req }
             gen_server:call(Pid, {'htmlfile', data, Req})
     end;
 
-dispatch_http({request, Method, Path, Req}, HttpHandler) ->
+dispatch_http({request, Method, Path, Req}, _Resource, HttpHandler) ->
     HttpHandler:handle_request(Method, lists:reverse(Path), Req).
