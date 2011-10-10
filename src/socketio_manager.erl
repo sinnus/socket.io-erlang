@@ -33,10 +33,10 @@ start_link(ServerModule, Sup) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [ServerModule, Sup], []).
 
 create_new_session(ConnectionReference, Transport) ->
-    gen_server:call(?MODULE, {session, generate, ConnectionReference, Transport}).
+    gen_server:call(?MODULE, {session, generate, ConnectionReference, Transport}, infinity).
 
 get_client_pid(SessionId) ->
-    gen_server:call(?MODULE, {get_client_pid, SessionId}).
+    gen_server:call(?MODULE, {get_client_pid, SessionId}, infinity).
 
 %%%===================================================================
 %%% gen_server callbacks

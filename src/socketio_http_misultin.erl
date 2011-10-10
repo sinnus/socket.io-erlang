@@ -129,7 +129,7 @@ dispatch_http({request, 'POST', ["send", SessionId, "xhr-polling"|Resource], Req
         undefined ->
             respond(Req, 404, "");
         Pid ->
-            gen_server:call(Pid, {'xhr-polling', data, Req})
+            gen_server:call(Pid, {'xhr-polling', data, Req}, infinity)
     end;
 
 %% New JSONP Polling request
@@ -151,7 +151,7 @@ dispatch_http({request, 'POST', [_Index, _Random, SessionId, "jsonp-polling"|Res
         undefined ->
             respond(Req, 404, "");
         Pid ->
-            gen_server:call(Pid, {'jsonp-polling', data, Req})
+            gen_server:call(Pid, {'jsonp-polling', data, Req}, infinity)
     end;
 
 %% New XHR Multipart request
@@ -171,7 +171,7 @@ dispatch_http({request, 'POST', ["send", SessionId, "xhr-multipart"|Resource], R
         undefined ->
             respond(Req, 404, "");
         Pid ->
-            gen_server:call(Pid, {'xhr-multipart', data, Req})
+            gen_server:call(Pid, {'xhr-multipart', data, Req}, infinity)
     end;
 
 %% New htmlfile request
@@ -191,7 +191,7 @@ dispatch_http({request, 'POST', ["send", SessionId, "htmlfile"|Resource], Req },
         undefined ->
             respond(Req, 404, "");
         Pid ->
-            gen_server:call(Pid, {'htmlfile', data, Req})
+            gen_server:call(Pid, {'htmlfile', data, Req}, infinity)
     end;
 
 dispatch_http({request, Method, Path, Req}, _Resource, HttpHandler) ->
