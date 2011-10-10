@@ -209,7 +209,7 @@ handle_cast(disconnect, #state{connection_reference = {_TransportType, connected
                                req = Req,
                                server_module = ServerModule}  = _State) ->
     gen_server:reply(Caller, apply(ServerModule, respond, [Req, 200,""])),
-    {stop, normal, _State};
+    {stop, shutdown, _State};
 
 handle_cast(_, State) ->
     {noreply, State}.
