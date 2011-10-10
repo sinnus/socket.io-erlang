@@ -23,7 +23,8 @@
           close_timeout,
           event_manager,
           sup,
-          ssid_timeour_ref
+          ssid_timeour_ref,
+          sock
          }).
 
 %%%===================================================================
@@ -89,7 +90,8 @@ init([Sup, SessionId, ServerModule, {TransportType, {Req, Index}}]) ->
        close_timeout = CloseTimeout,
        event_manager = EventMgr,
        sup = Sup,
-       ssid_timeour_ref = SessionRequestTimeoutRef
+       ssid_timeour_ref = SessionRequestTimeoutRef,
+       sock = undefined
       }};
 
 init([Sup, SessionId, ServerModule, {TransportType, Req}]) ->
@@ -159,18 +161,23 @@ handle_call({TransportType, polling_request, Req}, From, #state {server_module =
                                                                  polling_duration = Interval,
                                                                  message_buffer = [] } = State) ->
     ServerModule:ensure_longpolling_request(Req),
-    link(ServerModule:socket(Req)),
+    Sock = ServerModule:socket(Req),
+    link(Sock),
     {noreply, State#state{connection_reference = {TransportType, connected}, req = Req,
                           caller = From,
                           polling_duration = reset_duration(Interval),
-                          ssid_timeour_ref = reset_ssid_timer(State#state.ssid_timeour_ref)}};
+                          ssid_timeour_ref = reset_ssid_timer(State#state.ssid_timeour_ref),
+                          sock = Sock}};
 
 handle_call({TransportType, polling_request, Req}, From,  #state {server_module = ServerModule, 
                                                                    message_buffer = Buffer } = State) ->
-    link(ServerModule:socket(Req)),
+    Sock = ServerModule:socket(Req),
+    link(Sock),
     handle_cast({send, {buffer, Buffer}}, State#state{ connection_reference = {TransportType, connected},
-						       ssid_timeour_ref = reset_ssid_timer(State#state.ssid_timeour_ref),
-						       req = Req, caller = From, message_buffer = []});
+                                                       ssid_timeour_ref = reset_ssid_timer(State#state.ssid_timeour_ref),
+                                                       req = Req, caller = From, message_buffer = [],
+                                                       sock = Sock
+                                                     });
 
 %% Flow control
 handle_call(stop, _From, State) ->
@@ -210,9 +217,11 @@ handle_cast(_, State) ->
 %% @end
 %%--------------------------------------------------------------------
 %% A client has disconnected. We fire a timer (CloseTimeout)!
-handle_info({'EXIT',Connection,_Reason}, #state{ connection_reference = {TransportType, _ }, close_timeout = CloseTimeout} = State) when is_port(Connection);
-																	 is_pid(Connection)->
-    {noreply, State#state { connection_reference = {TransportType, none}}, CloseTimeout};
+handle_info({'EXIT',Connection,_Reason}, #state{connection_reference = {TransportType, _ },
+                                                close_timeout = CloseTimeout,
+                                                sock = Connection} = State) when is_port(Connection);
+                                                                                 is_pid(Connection)->
+    {noreply, State#state {connection_reference = {TransportType, none}}, CloseTimeout};
 
 %% Connections has timed out, but is technically still active. This is like a
 %% heartbeat, but for polling connections.
