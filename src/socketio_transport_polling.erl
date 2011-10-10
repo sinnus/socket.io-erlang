@@ -194,7 +194,7 @@ handle_call(stop, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 %% Send to client
-handle_cast({send, Message}, #state{ connection_reference = {_TransportType, none}, message_buffer = Buffer } = State) ->
+handle_cast({send, Message}, #state{connection_reference = {_TransportType, none}, message_buffer = Buffer } = State) ->
     {noreply, State#state{ message_buffer = lists:append(Buffer, [Message])}};
 
 handle_cast({send, Message}, #state{ server_module = ServerModule,
@@ -203,6 +203,13 @@ handle_cast({send, Message}, #state{ server_module = ServerModule,
     gen_server:reply(Caller, send_message(Message, Req, Index, ServerModule, Sup)),
     {noreply, State#state{ connection_reference = {TransportType, none},
                            polling_duration = reset_duration(Interval) }};
+
+handle_cast(disconnect, #state{connection_reference = {_TransportType, connected},
+                               caller = Caller,
+                               req = Req,
+                               server_module = ServerModule}  = _State) ->
+    gen_server:reply(Caller, apply(ServerModule, respond, [Req, 200,""])),
+    {stop, normal, _State};
 
 handle_cast(_, State) ->
     {noreply, State}.
