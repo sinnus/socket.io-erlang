@@ -45,7 +45,7 @@ init([Options]) ->
                                                                              [{port, HttpPort},
                                                                               {resource, Resource},
                                                                               {ssl, SSL},
-                                                                              {session_expire, 600},
+                                                                              {session_expire, SessionExpire},
                                                                               {static, Static},
                                                                               {http_handler, DefaultHttpHandler}]]},
                                    permanent, 5000, worker, [ServerModule]},
