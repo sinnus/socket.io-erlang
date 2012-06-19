@@ -7,8 +7,10 @@ start_link(Opts) ->
     Port = proplists:get_value(port, Opts),
     Resource = proplists:get_value(resource, Opts),
     SSL = proplists:get_value(ssl, Opts),
+    SessionExpire = proplists:get_value(session_expire, Opts, 600),
     HttpHandler = proplists:get_value(http_handler, Opts),
-    misultin:start_link(create_options(Port, Resource, SSL, HttpHandler)).
+    Static = proplists:get_value(static, Opts, false),
+    misultin:start_link(create_options(Port, Resource, SSL, HttpHandler, SessionExpire, Static)).
 
 file(Request, Filename) ->
     misultin_req:file(Filename, Request).
@@ -52,18 +54,22 @@ ensure_longpolling_request(Request) ->
     misultin_req:options([{comet, true}], Request).
 
 %% Internal functions
-create_options(Port, Resource, undefined, HttpHandler) ->
+create_options(Port, Resource, undefined, HttpHandler, SessionExpire, Static) ->
     [{port, Port},
      {name, false},
+     {sessions_expire, SessionExpire},
+     {static, Static},
      {loop, fun (Req) -> handle_http(Req, Resource, HttpHandler) end},
      {ws_loop, fun (Ws) -> handle_websocket(Resource, Ws) end},
      {ws_autoexit, false}];
-create_options(Port, Resource, SSL, HttpHandler) ->
+create_options(Port, Resource, SSL, HttpHandler, SessionExpire, Static) ->
     Certfile = proplists:get_value(certfile, SSL),
     Keyfile = proplists:get_value(keyfile, SSL),
     Password = proplists:get_value(password, SSL),
     [{port, Port},
      {name, false},
+     {sessions_expire, SessionExpire},
+     {static, Static},
      {loop, fun (Req) -> handle_http(Req, Resource, HttpHandler) end},
      {ws_loop, fun (Ws) -> handle_websocket(Resource, Ws) end},
      {ws_autoexit, false},
@@ -159,7 +165,7 @@ dispatch_http({request, 'GET', ["xhr-multipart"|Resource], Req }, Resource, _Htt
     {_, Pid1} = socketio_manager:create_new_session({'xhr-multipart', {Req, self()}}, socketio_transport_xhr_multipart),
     Ref = erlang:monitor(process, Pid1),
     receive
-        {'DOWN', Ref, process, _, _} -> 
+        {'DOWN', Ref, process, _, _} ->
             ok;
         Ignore ->
             error_logger:warning_msg("Ignore: ~p~n", [Ignore])
@@ -179,7 +185,7 @@ dispatch_http({request, 'GET', [_Random, "htmlfile"|Resource], Req }, Resource, 
     {_, Pid1} = socketio_manager:create_new_session({'htmlfile', {Req, self()}}, socketio_transport_htmlfile),
     Ref = erlang:monitor(process, Pid1),
     receive
-        {'DOWN', Ref, process, _, _} -> 
+        {'DOWN', Ref, process, _, _} ->
             ok;
         Ignore ->
             error_logger:warning_msg("Ignore: ~p~n", [Ignore])

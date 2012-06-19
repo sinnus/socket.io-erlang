@@ -29,24 +29,32 @@ init([Options]) ->
     Resource = lists:reverse(string:tokens(proplists:get_value(resource, Options, "socket.io"),"/")),
     SSL = proplists:get_value(ssl, Options),
     Origins = proplists:get_value(origins,Options,[{"*", "*"}]),
+    SessionExpire = proplists:get_value(session_expire, Options, 600),
+    Static = proplists:get_value(static, Options, false),
     {ok, { {one_for_one, 5, 10}, [
                                   {socketio_listener_event_manager, {gen_event, start_link, []},
                                    permanent, 5000, worker, [gen_event]},
-                                  
+
                                   {uuids, {uuids, start, []},
                                    permanent, 5000, worker, [uuids]},
-                                  
+
                                   {socketio_listener, {socketio_listener, start_link, [self(), Origins]},
                                    permanent, 5000, worker, [socketio_listener]},
 
-                                  {ServerModule, {ServerModule, start_link, [[{port, HttpPort}, {resource, Resource}, {ssl, SSL}, {http_handler, DefaultHttpHandler}]]},
+                                  {ServerModule, {ServerModule, start_link, [
+                                                                             [{port, HttpPort},
+                                                                              {resource, Resource},
+                                                                              {ssl, SSL},
+                                                                              {session_expire, 600},
+                                                                              {static, Static},
+                                                                              {http_handler, DefaultHttpHandler}]]},
                                    permanent, 5000, worker, [ServerModule]},
-                                  
+
                                   {socketio_manager, {socketio_manager, start_link, [ServerModule,
-                                                                                     self()]}, 
+                                                                                     self()]},
                                    permanent, 5000, worker, [socketio_manager]},
-                                  
-                                  {socketio_client_sup, {socketio_client_sup, start_link, []}, 
+
+                                  {socketio_client_sup, {socketio_client_sup, start_link, []},
                                    permanent, infinity, supervisor, [socketio_client_sup]}
 
                                  ]} }.

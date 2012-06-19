@@ -10,7 +10,7 @@
          terminate/2, code_change/3,
          create_new_session/2, get_client_pid/1]).
 
--define(SERVER, ?MODULE). 
+-define(SERVER, ?MODULE).
 
 -record(state, {
           sessions,
@@ -79,14 +79,14 @@ init([ServerModule, Sup]) ->
 %%--------------------------------------------------------------------
 handle_call({get_client_pid, SessionId}, _From, #state{sessions = Sessions} = State) ->
     Reply = case ets:lookup(Sessions, SessionId) of
-                [{SessionId, Pid}] -> 
+                [{SessionId, Pid}] ->
                     Pid;
                 _ ->
                     undefined
             end,
     {reply, Reply, State};
-    
-handle_call({session, generate, ConnectionReference, Transport}, _From, #state{ 
+
+handle_call({session, generate, ConnectionReference, Transport}, _From, #state{
                                                                    sup = Sup,
                                                                    sessions = Sessions,
                                                                    event_manager = EventManager,
