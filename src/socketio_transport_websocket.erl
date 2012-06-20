@@ -144,7 +144,7 @@ handle_cast({send, Message}, #state{ server_module = ServerModule,
 
 handle_cast(disconnect, #state{connection_reference = ConnectionReference,
                                server_module = ServerModule} = _State) ->
-    apply(ServerModule, websocket_disconnect, [ConnectionReference]);
+    disconnect_send(ConnectionReference, ServerModule);
 
 handle_cast(heartbeat, #state{
               server_module = ServerModule,
@@ -205,3 +205,6 @@ reset_interval({TimerRef, Time}) ->
     erlang:cancel_timer(TimerRef),
     NewRef = erlang:start_timer(Time, self(), heartbeat),
     {NewRef, Time}.
+
+disconnect_send({websocket, Ws}, ServerModule) ->
+    apply(ServerModule, websocket_disconnect, [Ws]).
