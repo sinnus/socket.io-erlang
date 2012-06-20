@@ -142,8 +142,9 @@ handle_cast({send, Message}, #state{ server_module = ServerModule,
     handle_send(ConnectionReference, Message, ServerModule),
     {noreply, State#state{ heartbeat_interval = reset_interval(Interval) }};
 
-handle_cast(disconnect, _State) ->
-    {stop, shutdown, _State};
+handle_cast(disconnect, #state{connection_reference = ConnectionReference,
+                               server_module = ServerModule} = _State) ->
+    apply(ServerModule, websocket_disconnect, [ConnectionReference]);
 
 handle_cast(heartbeat, #state{
               server_module = ServerModule,
