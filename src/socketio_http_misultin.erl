@@ -50,7 +50,7 @@ get_headers(Request) ->
 websocket_send(Ws, Data) ->
     misultin_ws:send(Data, Ws).
 
-websocket_disconnect({misultin_ws, _Ws, SocketPid}) ->
+websocket_disconnect({misultin_ws, SocketPid}) ->
     SocketPid ! shutdown.
 
 ensure_longpolling_request(Request) ->
