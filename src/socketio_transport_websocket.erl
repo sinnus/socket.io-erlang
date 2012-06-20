@@ -144,7 +144,8 @@ handle_cast({send, Message}, #state{ server_module = ServerModule,
 
 handle_cast(disconnect, #state{connection_reference = ConnectionReference,
                                server_module = ServerModule} = _State) ->
-    disconnect_send(ConnectionReference, ServerModule);
+    disconnect_send(ConnectionReference, ServerModule),
+    {noreply, _State};
 
 handle_cast(heartbeat, #state{
               server_module = ServerModule,
